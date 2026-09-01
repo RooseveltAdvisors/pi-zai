@@ -342,7 +342,7 @@ export function zaiResourceBundleProvider(): Provider<"openai-completions"> {
     baseUrl: ZAI_RESOURCE_BUNDLE_BASE_URL,
     auth: { apiKey: envApiKeyAuth("Z.AI API key", ["ZAI_API_KEY"]) },
     models,
-  api: zaiResourceBundleApi(),
+    api: zaiResourceBundleApi(),
   });
 }
 
