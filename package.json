@@ -1,0 +1,34 @@
+{
+  "name": "pi-zai",
+  "version": "0.1.0",
+  "description": "Pi provider for Z.AI's general PaaS API",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RooseveltAdvisors/pi-zai.git"
+  },
+  "homepage": "https://github.com/RooseveltAdvisors/pi-zai",
+  "keywords": ["pi-package", "pi", "z.ai", "glm", "openai"],
+  "files": ["extensions/**/*.ts", "README.md", "LICENSE"],
+  "pi": {
+    "extensions": ["extensions/zai-resource-bundle.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.0"
+  }
+}
