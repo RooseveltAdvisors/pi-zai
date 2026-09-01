@@ -51,7 +51,17 @@ describe("Z.AI Resource Bundle provider", () => {
       `data: ${JSON.stringify({
         id: "response",
         model: "glm-4.5v",
-        choices: [{ index: 0, delta: { content: "answer" }, finish_reason: null }],
+        choices: [{ index: 0, delta: { content: "<thi" }, finish_reason: null }],
+      })}`,
+      `data: ${JSON.stringify({
+        id: "response",
+        model: "glm-4.5v",
+        choices: [{ index: 0, delta: { content: "nk>private</thi" }, finish_reason: null }],
+      })}`,
+      `data: ${JSON.stringify({
+        id: "response",
+        model: "glm-4.5v",
+        choices: [{ index: 0, delta: { content: "nk><|begin_of_thought|>also-private<|end_of_thought|>answer" }, finish_reason: null }],
       })}`,
       `data: ${JSON.stringify({
         id: "response",
@@ -77,9 +87,14 @@ describe("Z.AI Resource Bundle provider", () => {
       },
     );
 
+    const visibleDeltas: string[] = [];
+    for await (const event of stream) {
+      if (event.type === "text_delta") visibleDeltas.push(event.delta);
+    }
     const response = await stream.result();
 
     expect(requestBody?.thinking).toEqual({ type: "disabled" });
+    expect(visibleDeltas.join("")).toBe("answer");
     expect(response.content).toEqual([{ type: "text", text: "answer" }]);
   });
 });
