@@ -59,7 +59,7 @@ const models = [
   model("glm-4.5-air", "GLM-4.5 Air", { maxTokens: 98304, contextWindow: 131072 }),
   model("glm-4.5-x", "GLM-4.5 X", { maxTokens: 98304, contextWindow: 131072 }),
   model("glm-4.5-airx", "GLM-4.5 AirX", { maxTokens: 98304, contextWindow: 131072 }),
-  model("glm-4.5-flash", "GLM-4.5 Flash", { maxTokens: 98304, contextWindow: 204800 }),
+  model("glm-4.5-flash", "GLM-4.5 Flash", { maxTokens: 98304, contextWindow: 131072 }),
   model("glm-4-32b-0414-128k", "GLM-4 32B 0414 128K", {
     maxTokens: 16384,
     contextWindow: 131072,

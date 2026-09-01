@@ -22,6 +22,7 @@ describe("Z.AI Resource Bundle provider", () => {
       contextWindow: 131072,
       compat: { zaiToolStream: false },
     });
+    expect(models["glm-4.5-flash"].contextWindow).toBe(131072);
     expect(models["glm-4.6v"]).toMatchObject({
       contextWindow: 131072,
       compat: { zaiToolStream: false },
