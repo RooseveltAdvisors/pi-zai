@@ -49,7 +49,7 @@ const model = (
 
 const models = [
   model("glm-5.1", "GLM-5.1", { zaiToolStream: true }),
-  model("glm-5-turbo", "GLM-5-Turbo", { zaiToolStream: true }),
+  model("glm-5-turbo", "GLM-5-Turbo"),
   model("glm-5", "GLM-5", { zaiToolStream: true }),
   model("glm-4.7", "GLM-4.7", { zaiToolStream: true }),
   model("glm-4.7-flash", "GLM-4.7 Flash", { zaiToolStream: true }),

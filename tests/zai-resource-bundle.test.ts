@@ -18,6 +18,7 @@ describe("Z.AI Resource Bundle provider", () => {
     const models = Object.fromEntries(zaiResourceBundleProvider().getModels().map((model) => [model.id, model]));
 
     expect(models["glm-4.7"].compat?.zaiToolStream).toBe(true);
+    expect(models["glm-5-turbo"].compat?.zaiToolStream).toBe(false);
     expect(models["glm-4.5"]).toMatchObject({
       contextWindow: 131072,
       compat: { zaiToolStream: false },
