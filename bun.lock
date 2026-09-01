@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "pi-zai",
+      "dependencies": {
+        "@earendil-works/pi-ai": "^0.84.4",
+      },
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "*",
         "@types/node": "^22.0.0",
