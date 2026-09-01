@@ -42,7 +42,7 @@ describe("Z.AI Resource Bundle provider", () => {
     });
   });
 
-  test("disables GLM-4.5V thinking at the API boundary", async () => {
+  test("filters GLM-4.5V thinking safely at the API boundary", async () => {
     const provider = zaiResourceBundleProvider();
     const model = provider.getModels().find((entry) => entry.id === "glm-4.5v");
     expect(model).toBeDefined();
@@ -57,7 +57,7 @@ describe("Z.AI Resource Bundle provider", () => {
       `data: ${JSON.stringify({
         id: "response",
         model: "glm-4.5v",
-        choices: [{ index: 0, delta: { content: "<think>private</think><|begin_of_thought|>also-private<|end_of_thought|>" }, finish_reason: null }],
+        choices: [{ index: 0, delta: { content: "<think>outer<think>inner</think>still-private</think><|begin_of_thought|>also-private<|end_of_thought|>" }, finish_reason: null }],
       })}`,
       `data: ${JSON.stringify({
         id: "response",

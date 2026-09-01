@@ -29,56 +29,82 @@ const REMOVED_TAGS = [
 ];
 
 type TagFilterState = {
-  insideThinking: boolean;
+  thinkingDepth: number;
   pending: string;
   rawLength: number;
   text: string;
 };
 
 function createTagFilterState(): TagFilterState {
-  return { insideThinking: false, pending: "", rawLength: 0, text: "" };
+  return { thinkingDepth: 0, pending: "", rawLength: 0, text: "" };
 }
 
-function matchingTag(value: string): string | undefined {
-  const lowerValue = value.toLowerCase();
-  return REMOVED_TAGS.find((tag) => lowerValue.startsWith(tag));
+function matchesTagAt(value: string, offset: number, tag: string): boolean {
+  if (value.length - offset < tag.length) return false;
+  for (let index = 0; index < tag.length; index += 1) {
+    const valueCode = value.charCodeAt(offset + index);
+    const tagCode = tag.charCodeAt(index);
+    if (valueCode === tagCode) continue;
+    if (valueCode < 65 || valueCode > 90 || valueCode + 32 !== tagCode) return false;
+  }
+  return true;
 }
 
-function hasPartialTag(value: string): boolean {
-  const lowerValue = value.toLowerCase();
-  return lowerValue.startsWith("<") && REMOVED_TAGS.some((tag) => tag.startsWith(lowerValue));
+function matchesTagPrefixAt(value: string, offset: number, tag: string): boolean {
+  const length = value.length - offset;
+  if (length === 0 || length >= tag.length) return false;
+  for (let index = 0; index < length; index += 1) {
+    const valueCode = value.charCodeAt(offset + index);
+    const tagCode = tag.charCodeAt(index);
+    if (valueCode === tagCode) continue;
+    if (valueCode < 65 || valueCode > 90 || valueCode + 32 !== tagCode) return false;
+  }
+  return true;
+}
+
+function matchingTagAt(value: string, offset: number): string | undefined {
+  return REMOVED_TAGS.find((tag) => matchesTagAt(value, offset, tag));
+}
+
+function hasPartialTagAt(value: string, offset: number): boolean {
+  return value.charCodeAt(offset) === 60 && REMOVED_TAGS.some((tag) => matchesTagPrefixAt(value, offset, tag));
 }
 
 function consumeText(state: TagFilterState, chunk: string): string {
   state.rawLength += chunk.length;
-  let input = state.pending + chunk;
+  const input = state.pending + chunk;
   state.pending = "";
   let visible = "";
+  let cursor = 0;
+  let segmentStart = 0;
 
-  while (input.length > 0) {
-    const tag = matchingTag(input);
+  while (cursor < input.length) {
+    const tag = matchingTagAt(input, cursor);
     if (tag) {
-      if (THINKING_OPEN_TAGS.includes(tag)) state.insideThinking = true;
-      if (THINKING_CLOSE_TAGS.includes(tag)) state.insideThinking = false;
-      input = input.slice(tag.length);
+      if (state.thinkingDepth === 0) visible += input.slice(segmentStart, cursor);
+      if (THINKING_OPEN_TAGS.includes(tag)) state.thinkingDepth += 1;
+      if (THINKING_CLOSE_TAGS.includes(tag)) state.thinkingDepth = Math.max(0, state.thinkingDepth - 1);
+      cursor += tag.length;
+      segmentStart = cursor;
       continue;
     }
-    if (hasPartialTag(input)) {
-      state.pending = input;
+    if (hasPartialTagAt(input, cursor)) {
+      if (state.thinkingDepth === 0) visible += input.slice(segmentStart, cursor);
+      state.pending = input.slice(cursor);
       break;
     }
-    if (!state.insideThinking) visible += input[0];
-    input = input.slice(1);
+    cursor += 1;
   }
 
+  if (cursor === input.length && state.thinkingDepth === 0) visible += input.slice(segmentStart);
   state.text += visible;
   return visible;
 }
 
 function finishText(state: TagFilterState): string {
-  if (!state.insideThinking) state.text += state.pending;
+  if (state.thinkingDepth === 0) state.text += state.pending;
   state.pending = "";
-  state.insideThinking = false;
+  state.thinkingDepth = 0;
   return state.text;
 }
 
