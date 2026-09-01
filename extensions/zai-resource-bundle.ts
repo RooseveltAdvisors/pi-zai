@@ -12,6 +12,7 @@ type ModelOptions = {
   maxTokens?: number;
   contextWindow?: number;
   reasoning?: boolean;
+  samplingParams?: Record<string, unknown>;
   zaiToolStream?: boolean;
 };
 
@@ -31,6 +32,7 @@ const model = (
     maxTokens = 131072,
     contextWindow = 204800,
     reasoning = true,
+    samplingParams,
     zaiToolStream = false,
   }: ModelOptions = {},
 ): Model<"openai-completions"> => ({
@@ -44,6 +46,7 @@ const model = (
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   contextWindow,
   maxTokens,
+  ...(samplingParams ? { samplingParams } : {}),
   compat: { ...compat, zaiToolStream },
 });
 
@@ -85,6 +88,8 @@ const models = [
     input: ["text", "image"],
     maxTokens: 16384,
     contextWindow: 65536,
+    reasoning: false,
+    samplingParams: { thinking: { type: "disabled" } },
   }),
 ] as const;
 

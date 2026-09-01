@@ -29,7 +29,9 @@ describe("Z.AI Resource Bundle provider", () => {
       compat: { zaiToolStream: false },
     });
     expect(models["glm-4.5v"]).toMatchObject({
+      reasoning: false,
       contextWindow: 65536,
+      samplingParams: { thinking: { type: "disabled" } },
       compat: { zaiToolStream: false },
     });
     expect(models["glm-4-32b-0414-128k"]).toMatchObject({
@@ -37,5 +39,47 @@ describe("Z.AI Resource Bundle provider", () => {
       contextWindow: 131072,
       compat: { zaiToolStream: false },
     });
+  });
+
+  test("disables GLM-4.5V thinking at the API boundary", async () => {
+    const provider = zaiResourceBundleProvider();
+    const model = provider.getModels().find((entry) => entry.id === "glm-4.5v");
+    expect(model).toBeDefined();
+
+    let requestBody: Record<string, unknown> | undefined;
+    const responseBody = [
+      `data: ${JSON.stringify({
+        id: "response",
+        model: "glm-4.5v",
+        choices: [{ index: 0, delta: { content: "answer" }, finish_reason: null }],
+      })}`,
+      `data: ${JSON.stringify({
+        id: "response",
+        model: "glm-4.5v",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      })}`,
+      "data: [DONE]",
+      "",
+    ].join("\n\n");
+
+    const stream = provider.streamSimple(
+      model!,
+      { messages: [{ role: "user", content: "hello", timestamp: 0 }] },
+      {
+        apiKey: "test-key",
+        fetch: async (_input, init) => {
+          requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+          return new Response(responseBody, {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          });
+        },
+      },
+    );
+
+    const response = await stream.result();
+
+    expect(requestBody?.thinking).toEqual({ type: "disabled" });
+    expect(response.content).toEqual([{ type: "text", text: "answer" }]);
   });
 });
