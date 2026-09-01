@@ -76,6 +76,7 @@ function consumeText(state: TagFilterState, chunk: string): string {
 }
 
 function finishText(state: TagFilterState): string {
+  if (!state.insideThinking) state.text += state.pending;
   state.pending = "";
   state.insideThinking = false;
   return state.text;
@@ -87,13 +88,22 @@ function sanitizeStandaloneText(text: string): string {
   return finishText(state);
 }
 
-function sanitizeMessage(message: AssistantMessage, states: Map<number, TagFilterState>): AssistantMessage {
+function sanitizeMessage(
+  message: AssistantMessage,
+  states: Map<number, TagFilterState>,
+  finalize = false,
+): AssistantMessage {
   return {
     ...message,
     content: message.content.map((block, index) => {
       if (block.type !== "text") return block;
-      const text = states.get(index)?.text ?? sanitizeStandaloneText(block.text);
-      return text === block.text ? block : { ...block, text };
+      const state = states.get(index);
+      const text = state
+        ? finalize
+          ? finishText(state)
+          : state.text
+        : sanitizeStandaloneText(block.text);
+      return { ...block, text };
     }),
   };
 }
@@ -133,9 +143,9 @@ function sanitizeEvent(
     case "toolcall_end":
       return { ...event, partial: sanitizeMessage(event.partial, states) };
     case "done":
-      return { ...event, message: sanitizeMessage(event.message, states) };
+      return { ...event, message: sanitizeMessage(event.message, states, true) };
     case "error":
-      return { ...event, error: sanitizeMessage(event.error, states) };
+      return { ...event, error: sanitizeMessage(event.error, states, true) };
   }
 }
 

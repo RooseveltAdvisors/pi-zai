@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
   ZAI_RESOURCE_BUNDLE_BASE_URL,
   zaiResourceBundleProvider,
@@ -51,17 +52,17 @@ describe("Z.AI Resource Bundle provider", () => {
       `data: ${JSON.stringify({
         id: "response",
         model: "glm-4.5v",
+        choices: [{ index: 0, delta: { content: "answer" }, finish_reason: null }],
+      })}`,
+      `data: ${JSON.stringify({
+        id: "response",
+        model: "glm-4.5v",
+        choices: [{ index: 0, delta: { content: "<think>private</think><|begin_of_thought|>also-private<|end_of_thought|>" }, finish_reason: null }],
+      })}`,
+      `data: ${JSON.stringify({
+        id: "response",
+        model: "glm-4.5v",
         choices: [{ index: 0, delta: { content: "<thi" }, finish_reason: null }],
-      })}`,
-      `data: ${JSON.stringify({
-        id: "response",
-        model: "glm-4.5v",
-        choices: [{ index: 0, delta: { content: "nk>private</thi" }, finish_reason: null }],
-      })}`,
-      `data: ${JSON.stringify({
-        id: "response",
-        model: "glm-4.5v",
-        choices: [{ index: 0, delta: { content: "nk><|begin_of_thought|>also-private<|end_of_thought|>answer" }, finish_reason: null }],
       })}`,
       `data: ${JSON.stringify({
         id: "response",
@@ -88,13 +89,18 @@ describe("Z.AI Resource Bundle provider", () => {
     );
 
     const visibleDeltas: string[] = [];
+    let firstPartial: AssistantMessage | undefined;
     for await (const event of stream) {
-      if (event.type === "text_delta") visibleDeltas.push(event.delta);
+      if (event.type === "text_delta") {
+        visibleDeltas.push(event.delta);
+        firstPartial ??= event.partial;
+      }
     }
     const response = await stream.result();
 
     expect(requestBody?.thinking).toEqual({ type: "disabled" });
     expect(visibleDeltas.join("")).toBe("answer");
-    expect(response.content).toEqual([{ type: "text", text: "answer" }]);
+    expect(firstPartial?.content).toEqual([{ type: "text", text: "answer" }]);
+    expect(response.content).toEqual([{ type: "text", text: "answer<thi" }]);
   });
 });
