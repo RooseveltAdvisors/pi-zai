@@ -17,6 +17,16 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 export const ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4";
 export const ZAI_GENERAL_PROVIDER_ID = "zai-general";
 const GLM_45V_MODEL_ID = "glm-4.5v";
+const GLM_53_MODEL_IDS = new Set(["glm-5.3", "glm-5.3-flash"]);
+const GLM_53_THINKING_LEVEL_MAP = {
+  off: null,
+  minimal: null,
+  low: "low",
+  medium: null,
+  high: "high",
+  xhigh: null,
+  max: "max",
+} satisfies NonNullable<Model<"openai-completions">["thinkingLevelMap"]>;
 
 const THINKING_OPEN_TAGS = ["<think>", "<|begin_of_think|>", "<|begin_of_thought|>", "<reasoning>"];
 const THINKING_CLOSE_TAGS = ["</think>", "<|end_of_think|>", "<|end_of_thought|>", "</reasoning>"];
@@ -255,6 +265,8 @@ type ModelOptions = {
   maxTokens?: number;
   contextWindow?: number;
   reasoning?: boolean;
+  supportsReasoningEffort?: boolean;
+  thinkingLevelMap?: Model<"openai-completions">["thinkingLevelMap"];
   samplingParams?: Record<string, unknown>;
   zaiToolStream?: boolean;
 };
@@ -275,6 +287,8 @@ const model = (
     maxTokens = 131072,
     contextWindow = 204800,
     reasoning = true,
+    supportsReasoningEffort = false,
+    thinkingLevelMap,
     samplingParams,
     zaiToolStream = false,
   }: ModelOptions = {},
@@ -285,12 +299,13 @@ const model = (
   provider: ZAI_GENERAL_PROVIDER_ID,
   baseUrl: ZAI_GENERAL_BASE_URL,
   reasoning,
+  ...(thinkingLevelMap ? { thinkingLevelMap } : {}),
   input,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   contextWindow,
   maxTokens,
   ...(samplingParams ? { samplingParams } : {}),
-  compat: { ...compat, zaiToolStream },
+  compat: { ...compat, supportsReasoningEffort, zaiToolStream },
 });
 
 type ZaiModelResponse = {
@@ -316,9 +331,11 @@ function modelFromApi(entry: ZaiModelResponse): Model<"openai-completions"> | un
   if (typeof entry.id !== "string" || !entry.id || NON_CHAT_MODEL.test(entry.id)) return undefined;
 
   const id = entry.id;
+  const normalizedId = id.toLowerCase();
   const isVision = /(?:^|[-.])v(?:[-.]|$)|vision/i.test(id);
-  const isGlm45v = id.toLowerCase() === GLM_45V_MODEL_ID;
-  const isReasoning = !/(flash|air|airx|32b|4\.5v)/i.test(id);
+  const isGlm45v = normalizedId === GLM_45V_MODEL_ID;
+  const isGlm53 = GLM_53_MODEL_IDS.has(normalizedId);
+  const isReasoning = isGlm53 || !/(flash|air|airx|32b|4\.5v)/i.test(id);
   const isToolStreamCompatible = /^(?:glm-5(?:\.1)?$|glm-4\.7(?:-.*)?$|glm-4\.6$)/i.test(id);
   const defaults = isGlm45v
     ? { maxTokens: 16384, contextWindow: 65536 }
@@ -333,6 +350,9 @@ function modelFromApi(entry: ZaiModelResponse): Model<"openai-completions"> | un
     maxTokens: positiveNumber(entry.max_tokens) ?? defaults.maxTokens,
     contextWindow: positiveNumber(entry.context_window) ?? defaults.contextWindow,
     reasoning: isGlm45v ? false : isReasoning,
+    ...(isGlm53
+      ? { supportsReasoningEffort: true, thinkingLevelMap: GLM_53_THINKING_LEVEL_MAP }
+      : {}),
     ...(isGlm45v ? { samplingParams: { thinking: { type: "disabled" } } } : {}),
     zaiToolStream: isToolStreamCompatible,
   });
