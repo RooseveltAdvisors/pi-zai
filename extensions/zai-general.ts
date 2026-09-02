@@ -393,10 +393,22 @@ function storedZaiApiKey(): string | undefined {
 function zaiGeneralApiKeyAuth(apiKey: string | undefined): ApiKeyAuth {
   return {
     name: "Z.AI API key",
-    resolve: async ({ ctx, signal }) => {
+    login: async (interaction) => {
+      interaction.signal.throwIfAborted();
+      const key = await interaction.prompt({ type: "secret", message: "Enter Z.AI API key" });
+      interaction.signal.throwIfAborted();
+      if (!key.trim()) throw new Error("Z.AI API key is required");
+      return { type: "api_key", key };
+    },
+    resolve: async ({ ctx, credential, signal }) => {
       signal.throwIfAborted();
-      const key = apiKey ?? (await ctx.env("ZAI_API_KEY"));
-      return key ? { auth: { apiKey: key }, source: apiKey ? "stored zai credential" : "ZAI_API_KEY" } : undefined;
+      const key = credential?.key ?? apiKey ?? (await ctx.env("ZAI_API_KEY"));
+      return key
+        ? {
+            auth: { apiKey: key },
+            source: credential?.key ? "stored credential" : apiKey ? "stored zai credential" : "ZAI_API_KEY",
+          }
+        : undefined;
     },
   };
 }
@@ -411,6 +423,10 @@ export function zaiGeneralProvider(
     baseUrl: ZAI_GENERAL_BASE_URL,
     auth: { apiKey: zaiGeneralApiKeyAuth(apiKey) },
     models,
+    fetchModels: async (context) => {
+      if (context.credential?.type !== "api_key" || !context.credential.key) return [];
+      return fetchZaiModels(context.credential.key);
+    },
     api: zaiGeneralApi(),
   });
 }
