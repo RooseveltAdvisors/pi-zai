@@ -3,7 +3,8 @@
 Pi provider for [Z.AI](https://z.ai) **general** PaaS v4 (resource-bundle API).
 
 This package registers `zai-resource-bundle` and uses `ZAI_API_KEY` for API-key
-authentication. It includes Z.AI's current GLM text and vision chat models.
+authentication. At startup it fetches Z.AI's current GLM text and vision chat
+models from the general PaaS `/models` endpoint.
 
 ## Install
 
