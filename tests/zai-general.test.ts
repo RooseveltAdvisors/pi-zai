@@ -61,6 +61,32 @@ describe("Z.AI General API provider", () => {
     expect(auth).toEqual({ auth: { apiKey: "stored-zai-key" }, source: "stored zai credential" });
   });
 
+  test("supports setting a provider-scoped API key through Pi login", async () => {
+    const provider = zaiGeneralProvider();
+    let promptType: string | undefined;
+    let promptMessage: string | undefined;
+    const credential = await provider.auth.apiKey.login!({
+      signal: new AbortController().signal,
+      prompt: async (prompt) => {
+        promptType = prompt.type;
+        promptMessage = prompt.message;
+        return "ui-zai-key";
+      },
+      notify: () => {},
+    });
+
+    expect(promptType).toBe("secret");
+    expect(promptMessage).toBe("Enter Z.AI API key");
+    expect(credential).toEqual({ type: "api_key", key: "ui-zai-key" });
+
+    const auth = await provider.auth.apiKey.resolve!({
+      credential,
+      ctx: { env: async () => "env-zai-key", fileExists: async () => false },
+      signal: new AbortController().signal,
+    });
+    expect(auth).toEqual({ auth: { apiKey: "ui-zai-key" }, source: "stored credential" });
+  });
+
   test("advertises model-specific limits and compatibility", async () => {
     const models = Object.fromEntries((await testProvider()).getModels().map((model) => [model.id, model]));
 
