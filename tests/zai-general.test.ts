@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels, type AssistantMessage } from "@earendil-works/pi-ai";
 import {
   ZAI_GENERAL_BASE_URL,
   fetchZaiModels,
@@ -10,6 +10,8 @@ const catalog = {
   data: [
     { id: "glm-4.7" },
     { id: "glm-5-turbo" },
+    { id: "glm-5.3" },
+    { id: "glm-5.3-flash" },
     { id: "glm-4.5", context_window: 131072 },
     { id: "glm-4.5-flash", context_window: 131072 },
     { id: "glm-4.6v", context_window: 131072 },
@@ -44,7 +46,7 @@ describe("Z.AI General API provider", () => {
     const models = provider.getModels();
 
     expect(models.map((model) => model.id)).not.toContain("cogview-4");
-    expect(models).toHaveLength(7);
+    expect(models).toHaveLength(9);
     expect(models.every((model) => model.baseUrl === ZAI_GENERAL_BASE_URL)).toBe(true);
     expect(models.find((model) => model.id === "glm-4.7")?.name).toBe("GLM-4.7");
   });
@@ -64,6 +66,18 @@ describe("Z.AI General API provider", () => {
 
     expect(models["glm-4.7"].compat?.zaiToolStream).toBe(true);
     expect(models["glm-5-turbo"].compat?.zaiToolStream).toBe(false);
+    expect(models["glm-5.3"]).toMatchObject({
+      reasoning: true,
+      thinkingLevelMap: { off: null, low: "low", high: "high", max: "max" },
+      compat: { supportsReasoningEffort: true },
+    });
+    expect(models["glm-5.3-flash"]).toMatchObject({
+      reasoning: true,
+      thinkingLevelMap: { off: null, low: "low", high: "high", max: "max" },
+      compat: { supportsReasoningEffort: true },
+    });
+    expect(getSupportedThinkingLevels(models["glm-5.3"])).toEqual(["low", "high", "max"]);
+    expect(getSupportedThinkingLevels(models["glm-5.3-flash"])).toEqual(["low", "high", "max"]);
     expect(models["glm-4.5"]).toMatchObject({
       contextWindow: 131072,
       compat: { zaiToolStream: false },
@@ -84,6 +98,52 @@ describe("Z.AI General API provider", () => {
       contextWindow: 131072,
       compat: { zaiToolStream: false },
     });
+  });
+
+  test("sends Z.AI thinking and reasoning effort for GLM-5.3 models", async () => {
+    const provider = await testProvider();
+    const responseBody = [
+      `data: ${JSON.stringify({
+        id: "response",
+        choices: [{ index: 0, delta: { content: "answer" }, finish_reason: "stop" }],
+      })}`,
+      "data: [DONE]",
+      "",
+    ].join("\n\n");
+
+    for (const modelId of ["glm-5.3", "glm-5.3-flash"]) {
+      for (const level of ["low", "high", "max"] as const) {
+        let requestBody: Record<string, unknown> | undefined;
+        const model = provider.getModels().find((entry) => entry.id === modelId);
+        expect(model).toBeDefined();
+
+        const stream = provider.streamSimple(
+          model!,
+          { messages: [{ role: "user", content: "hello", timestamp: 0 }] },
+          {
+            apiKey: "test-key",
+            reasoning: level,
+            fetch: async (_input, init) => {
+              requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+              return new Response(responseBody, {
+                status: 200,
+                headers: { "content-type": "text/event-stream" },
+              });
+            },
+          },
+        );
+
+        for await (const _event of stream) {
+          // Consume the stream so the request is sent.
+        }
+        await stream.result();
+
+        expect(requestBody).toMatchObject({
+          thinking: { type: "enabled", clear_thinking: false },
+          reasoning_effort: level,
+        });
+      }
+    }
   });
 
   test("filters GLM-4.5V thinking safely at the API boundary", async () => {
