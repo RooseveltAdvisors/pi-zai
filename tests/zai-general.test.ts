@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
-  ZAI_RESOURCE_BUNDLE_BASE_URL,
+  ZAI_GENERAL_BASE_URL,
   fetchZaiModels,
-  zaiResourceBundleProvider,
-} from "../extensions/zai-resource-bundle.ts";
+  zaiGeneralProvider,
+} from "../extensions/zai-general.ts";
 
 const catalog = {
   data: [
@@ -21,18 +21,20 @@ const catalog = {
 
 async function testProvider() {
   const models = await fetchZaiModels("test-key", async (input, init) => {
-    expect(input).toBe(`${ZAI_RESOURCE_BUNDLE_BASE_URL}/models`);
+    expect(input).toBe(`${ZAI_GENERAL_BASE_URL}/models`);
     expect(init?.headers).toEqual({ Authorization: "Bearer test-key" });
     return new Response(JSON.stringify(catalog), { status: 200 });
   });
-  return zaiResourceBundleProvider(models);
+  return zaiGeneralProvider(models, "test-key");
 }
 
-describe("Z.AI Resource Bundle provider", () => {
+describe("Z.AI General API provider", () => {
   test("uses the general PaaS v4 endpoint", () => {
-    const provider = zaiResourceBundleProvider();
+    const provider = zaiGeneralProvider();
 
-    expect(provider.baseUrl).toBe(ZAI_RESOURCE_BUNDLE_BASE_URL);
+    expect(provider.id).toBe("zai-general");
+    expect(provider.name).toBe("Z.AI General API");
+    expect(provider.baseUrl).toBe(ZAI_GENERAL_BASE_URL);
     expect(provider.baseUrl).toBe("https://api.z.ai/api/paas/v4");
     expect(provider.baseUrl).not.toContain("/coding/paas/v4");
   });
@@ -43,8 +45,18 @@ describe("Z.AI Resource Bundle provider", () => {
 
     expect(models.map((model) => model.id)).not.toContain("cogview-4");
     expect(models).toHaveLength(7);
-    expect(models.every((model) => model.baseUrl === ZAI_RESOURCE_BUNDLE_BASE_URL)).toBe(true);
+    expect(models.every((model) => model.baseUrl === ZAI_GENERAL_BASE_URL)).toBe(true);
     expect(models.find((model) => model.id === "glm-4.7")?.name).toBe("GLM-4.7");
+  });
+
+  test("uses the existing zai credential for API requests", async () => {
+    const provider = zaiGeneralProvider([], "stored-zai-key");
+    const auth = await provider.auth.apiKey.resolve!({
+      ctx: { env: async () => undefined, fileExists: async () => false },
+      signal: new AbortController().signal,
+    });
+
+    expect(auth).toEqual({ auth: { apiKey: "stored-zai-key" }, source: "stored zai credential" });
   });
 
   test("advertises model-specific limits and compatibility", async () => {

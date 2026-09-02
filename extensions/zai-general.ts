@@ -1,11 +1,12 @@
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 import {
   createAssistantMessageEventStream,
   createProvider,
-  envApiKeyAuth,
   type Api,
   type AssistantMessage,
   type AssistantMessageEvent,
+  type ApiKeyAuth,
   type Model,
   type Provider,
   type ProviderStreams,
@@ -13,8 +14,8 @@ import {
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-export const ZAI_RESOURCE_BUNDLE_BASE_URL = "https://api.z.ai/api/paas/v4";
-export const ZAI_RESOURCE_BUNDLE_PROVIDER_ID = "zai-resource-bundle";
+export const ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4";
+export const ZAI_GENERAL_PROVIDER_ID = "zai-general";
 const GLM_45V_MODEL_ID = "glm-4.5v";
 
 const THINKING_OPEN_TAGS = ["<think>", "<|begin_of_think|>", "<|begin_of_thought|>", "<reasoning>"];
@@ -233,7 +234,7 @@ function withThinkingDisabled(options: StreamOptions | undefined): StreamOptions
   };
 }
 
-function zaiResourceBundleApi(): ProviderStreams {
+function zaiGeneralApi(): ProviderStreams {
   const streams = openAICompletionsApi();
   return {
     stream: (model, context, options) => {
@@ -281,8 +282,8 @@ const model = (
   id,
   name,
   api: "openai-completions",
-  provider: ZAI_RESOURCE_BUNDLE_PROVIDER_ID,
-  baseUrl: ZAI_RESOURCE_BUNDLE_BASE_URL,
+  provider: ZAI_GENERAL_PROVIDER_ID,
+  baseUrl: ZAI_GENERAL_BASE_URL,
   reasoning,
   input,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -351,7 +352,7 @@ export async function fetchZaiModels(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetchFn(`${ZAI_RESOURCE_BUNDLE_BASE_URL}/models`, {
+    const response = await fetchFn(`${ZAI_GENERAL_BASE_URL}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: controller.signal,
     });
@@ -364,22 +365,39 @@ export async function fetchZaiModels(
   }
 }
 
-export function zaiResourceBundleProvider(
+function storedZaiApiKey(): string | undefined {
+  const credential = readStoredCredential("zai");
+  return credential?.type === "api_key" ? credential.key : undefined;
+}
+
+function zaiGeneralApiKeyAuth(apiKey: string | undefined): ApiKeyAuth {
+  return {
+    name: "Z.AI API key",
+    resolve: async ({ ctx, signal }) => {
+      signal.throwIfAborted();
+      const key = apiKey ?? (await ctx.env("ZAI_API_KEY"));
+      return key ? { auth: { apiKey: key }, source: apiKey ? "stored zai credential" : "ZAI_API_KEY" } : undefined;
+    },
+  };
+}
+
+export function zaiGeneralProvider(
   models: readonly Model<"openai-completions">[] = [],
+  apiKey?: string,
 ): Provider<"openai-completions"> {
   return createProvider({
-    id: ZAI_RESOURCE_BUNDLE_PROVIDER_ID,
-    name: "Z.AI Resource Bundle",
-    baseUrl: ZAI_RESOURCE_BUNDLE_BASE_URL,
-    auth: { apiKey: envApiKeyAuth("Z.AI API key", ["ZAI_API_KEY"]) },
+    id: ZAI_GENERAL_PROVIDER_ID,
+    name: "Z.AI General API",
+    baseUrl: ZAI_GENERAL_BASE_URL,
+    auth: { apiKey: zaiGeneralApiKeyAuth(apiKey) },
     models,
-    api: zaiResourceBundleApi(),
+    api: zaiGeneralApi(),
   });
 }
 
 export default async function (pi: ExtensionAPI): Promise<void> {
   let models: Model<"openai-completions">[] = [];
-  const apiKey = process.env.ZAI_API_KEY;
+  const apiKey = storedZaiApiKey() ?? process.env.ZAI_API_KEY;
   if (apiKey) {
     try {
       models = await fetchZaiModels(apiKey);
@@ -387,5 +405,5 @@ export default async function (pi: ExtensionAPI): Promise<void> {
       console.warn("Failed to fetch Z.AI model catalog", error);
     }
   }
-  pi.registerProvider(zaiResourceBundleProvider(models));
+  pi.registerProvider(zaiGeneralProvider(models, apiKey));
 }

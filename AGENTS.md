@@ -13,4 +13,4 @@ When updating this file, preserve this bar for all agents and keep entries conci
 
 ## Project notes
 
-- The provider fetches its live GLM catalog from `https://api.z.ai/api/paas/v4/models`; see `extensions/zai-resource-bundle.ts` and validate with `bun test`.
+- The provider fetches its live GLM catalog from `https://api.z.ai/api/paas/v4/models`; see `extensions/zai-general.ts` and validate with `bun test`.

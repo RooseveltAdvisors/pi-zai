@@ -12,7 +12,7 @@
   "keywords": ["pi-package", "pi", "z.ai", "glm", "openai"],
   "files": ["extensions/**/*.ts", "README.md", "LICENSE"],
   "pi": {
-    "extensions": ["extensions/zai-resource-bundle.ts"]
+    "extensions": ["extensions/zai-general.ts"]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
