@@ -292,50 +292,81 @@ const model = (
   compat: { ...compat, zaiToolStream },
 });
 
-const models = [
-  model("glm-5.1", "GLM-5.1", { zaiToolStream: true }),
-  model("glm-5-turbo", "GLM-5-Turbo"),
-  model("glm-5", "GLM-5", { zaiToolStream: true }),
-  model("glm-4.7", "GLM-4.7", { zaiToolStream: true }),
-  model("glm-4.7-flash", "GLM-4.7 Flash", { zaiToolStream: true }),
-  model("glm-4.7-flashx", "GLM-4.7 FlashX", { zaiToolStream: true }),
-  model("glm-4.6", "GLM-4.6", { zaiToolStream: true }),
-  model("glm-4.5", "GLM-4.5", { maxTokens: 98304, contextWindow: 131072 }),
-  model("glm-4.5-air", "GLM-4.5 Air", { maxTokens: 98304, contextWindow: 131072 }),
-  model("glm-4.5-x", "GLM-4.5 X", { maxTokens: 98304, contextWindow: 131072 }),
-  model("glm-4.5-airx", "GLM-4.5 AirX", { maxTokens: 98304, contextWindow: 131072 }),
-  model("glm-4.5-flash", "GLM-4.5 Flash", { maxTokens: 98304, contextWindow: 131072 }),
-  model("glm-4-32b-0414-128k", "GLM-4 32B 0414 128K", {
-    maxTokens: 16384,
-    contextWindow: 131072,
-    reasoning: false,
-  }),
-  model("glm-5v-turbo", "GLM-5V-Turbo", { input: ["text", "image"] }),
-  model("glm-4.6v", "GLM-4.6V", {
-    input: ["text", "image"],
-    maxTokens: 32768,
-    contextWindow: 131072,
-  }),
-  model("glm-4.6v-flash", "GLM-4.6V Flash", {
-    input: ["text", "image"],
-    maxTokens: 32768,
-    contextWindow: 131072,
-  }),
-  model("glm-4.6v-flashx", "GLM-4.6V FlashX", {
-    input: ["text", "image"],
-    maxTokens: 32768,
-    contextWindow: 131072,
-  }),
-  model("glm-4.5v", "GLM-4.5V", {
-    input: ["text", "image"],
-    maxTokens: 16384,
-    contextWindow: 65536,
-    reasoning: false,
-    samplingParams: { thinking: { type: "disabled" } },
-  }),
-] as const;
+type ZaiModelResponse = {
+  id?: unknown;
+  name?: unknown;
+  context_window?: unknown;
+  max_tokens?: unknown;
+};
 
-export function zaiResourceBundleProvider(): Provider<"openai-completions"> {
+type ZaiModelsResponse = { data?: ZaiModelResponse[] };
+
+const NON_CHAT_MODEL = /(image|audio|video|tts|asr|embed|embedding|vector|rerank|cogview|realtime)/i;
+
+function positiveNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function prettyName(id: string): string {
+  return /^glm/i.test(id) ? id.toUpperCase() : id;
+}
+
+function modelFromApi(entry: ZaiModelResponse): Model<"openai-completions"> | undefined {
+  if (typeof entry.id !== "string" || !entry.id || NON_CHAT_MODEL.test(entry.id)) return undefined;
+
+  const id = entry.id;
+  const isVision = /(?:^|[-.])v(?:[-.]|$)|vision/i.test(id);
+  const isGlm45v = id.toLowerCase() === GLM_45V_MODEL_ID;
+  const isReasoning = !/(flash|air|airx|32b|4\.5v)/i.test(id);
+  const isToolStreamCompatible = /^(?:glm-5(?:\.1)?$|glm-4\.7(?:-.*)?$|glm-4\.6$)/i.test(id);
+  const defaults = isGlm45v
+    ? { maxTokens: 16384, contextWindow: 65536 }
+    : /4\.5|4-32b/i.test(id)
+      ? { maxTokens: /4-32b/i.test(id) ? 16384 : 98304, contextWindow: 131072 }
+      : isVision
+        ? { maxTokens: 32768, contextWindow: 131072 }
+        : { maxTokens: 131072, contextWindow: 204800 };
+
+  return model(id, typeof entry.name === "string" && entry.name ? entry.name : prettyName(id), {
+    input: isVision ? ["text", "image"] : ["text"],
+    maxTokens: positiveNumber(entry.max_tokens) ?? defaults.maxTokens,
+    contextWindow: positiveNumber(entry.context_window) ?? defaults.contextWindow,
+    reasoning: isGlm45v ? false : isReasoning,
+    ...(isGlm45v ? { samplingParams: { thinking: { type: "disabled" } } } : {}),
+    zaiToolStream: isToolStreamCompatible,
+  });
+}
+
+export function modelsFromZaiResponse(response: ZaiModelsResponse): Model<"openai-completions">[] {
+  return (response.data ?? []).flatMap((entry) => {
+    const parsed = modelFromApi(entry);
+    return parsed ? [parsed] : [];
+  });
+}
+
+export async function fetchZaiModels(
+  apiKey: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Model<"openai-completions">[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetchFn(`${ZAI_RESOURCE_BUNDLE_BASE_URL}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const models = modelsFromZaiResponse((await response.json()) as ZaiModelsResponse);
+    if (!models.length) throw new Error("No chat models in response");
+    return models;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function zaiResourceBundleProvider(
+  models: readonly Model<"openai-completions">[] = [],
+): Provider<"openai-completions"> {
   return createProvider({
     id: ZAI_RESOURCE_BUNDLE_PROVIDER_ID,
     name: "Z.AI Resource Bundle",
@@ -346,6 +377,15 @@ export function zaiResourceBundleProvider(): Provider<"openai-completions"> {
   });
 }
 
-export default function (pi: ExtensionAPI): void {
-  pi.registerProvider(zaiResourceBundleProvider());
+export default async function (pi: ExtensionAPI): Promise<void> {
+  let models: Model<"openai-completions">[] = [];
+  const apiKey = process.env.ZAI_API_KEY;
+  if (apiKey) {
+    try {
+      models = await fetchZaiModels(apiKey);
+    } catch (error) {
+      console.warn("Failed to fetch Z.AI model catalog", error);
+    }
+  }
+  pi.registerProvider(zaiResourceBundleProvider(models));
 }
