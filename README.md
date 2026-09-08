@@ -12,16 +12,9 @@ vision chat models from the general PaaS `/models` endpoint.
 Install from npm:
 
 ```bash
-pi install npm:pi-zai
+pi install https://github.com/RooseveltAdvisors/pi-zai
 ```
 
-Or add the package to `~/.pi/agent/settings.json`:
-
-```json
-{
-  "packages": ["npm:pi-zai"]
-}
-```
 
 The provider uses the API key stored through `/login zai-general` first, then
 the key stored for Pi's built-in `zai` provider. If no stored credential is
