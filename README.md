@@ -1,5 +1,22 @@
 # pi-zai
 
+![pi-zai in action](assets/pi-zai-demo.gif)
+
+Pi connects the familiar Pi workflow to Z.AI's general API: install the provider, choose a live GLM model, and start chatting. The terminal capture below shows the provider and model used for the reply.
+
+![Provider and model reply](assets/pi-zai-session.png)
+
+## Example
+
+```json
+{
+  "model": "zai-general/glm-5.3",
+  "apiKey": "$ZAI_API_KEY"
+}
+```
+
+The provider discovers the current model catalog from Z.AI, so the model ID shown in your session comes directly from the general PaaS API.
+
 Pi provider for [Z.AI](https://z.ai)'s general PaaS v4 API.
 
 This package registers `zai-general`. Configure its API key with `/login
