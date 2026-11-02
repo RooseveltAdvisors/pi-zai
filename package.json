@@ -15,9 +15,13 @@
     "extensions": ["extensions/zai-general.ts"]
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*"
   },
   "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
     "@earendil-works/pi-coding-agent": {
       "optional": true
     }
@@ -26,10 +30,8 @@
     "build": "tsc --noEmit",
     "test": "bun test"
   },
-  "dependencies": {
-    "@earendil-works/pi-ai": "^0.84.4"
-  },
   "devDependencies": {
+    "@earendil-works/pi-ai": "^0.84.4",
     "@earendil-works/pi-coding-agent": "*",
     "@types/node": "^22.0.0",
     "typescript": "^6.0.0"
