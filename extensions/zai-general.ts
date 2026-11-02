@@ -1,8 +1,8 @@
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 import {
   createAssistantMessageEventStream,
   createProvider,
+  openAICompletionsApi,
   type Api,
   type AssistantMessage,
   type AssistantMessageEvent,
@@ -11,7 +11,7 @@ import {
   type Provider,
   type ProviderStreams,
   type StreamOptions,
-} from "@earendil-works/pi-ai";
+} from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export const ZAI_GENERAL_BASE_URL = "https://api.z.ai/api/paas/v4";
