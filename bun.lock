@@ -4,18 +4,18 @@
   "workspaces": {
     "": {
       "name": "pi-zai",
-      "dependencies": {
-        "@earendil-works/pi-ai": "^0.84.4",
-      },
       "devDependencies": {
+        "@earendil-works/pi-ai": "^0.84.4",
         "@earendil-works/pi-coding-agent": "*",
         "@types/node": "^22.0.0",
         "typescript": "^6.0.0",
       },
       "peerDependencies": {
+        "@earendil-works/pi-ai": "*",
         "@earendil-works/pi-coding-agent": "*",
       },
       "optionalPeers": [
+        "@earendil-works/pi-ai",
         "@earendil-works/pi-coding-agent",
       ],
     },
